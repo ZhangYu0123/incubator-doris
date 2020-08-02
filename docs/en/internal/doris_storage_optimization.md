@@ -111,6 +111,39 @@ For each column, a sparse index of row numbers is established according to page 
 
 We generate a sparse index of short key every N rows (configurable) with the contents of short key - > line number (ordinal)
 
+### Delete Index page ###
+
+When importing and deleting according to the key, we will generate a bitmap index of the delete key for these keys. The content of the index is: the deleted line number (ordinal). It is a new feature in Doris 0.13.
+The specific format of delete index footer page(DeleteIndexFooterPB):
+```
+
+                 +--------------------+
+                 |        type        |
+                 |--------------------|
+                 |  uncompressed_size |
+                 |--------------------|
+                 |    content_bytes   |
+                 |--------------------|
+                 |      num_items     |
+                 |--------------------|
+                 |      checksum      |
+                 +--------------------+
+```
+
+The meaning of each field is as follows:
+- type:
+  - The type is DELETE_INDEX_PAGE, which means that the page of the index type is deleted
+- uncompressed_size: 
+  - Uncompressed page size
+- content_bytes: 
+  - Data size of index content
+- num_items: 
+  - Store the number of deleted entries recorded in the index
+- checksum: 
+  - Checksum of index page content
+
+encoding: The encoding format of index using roaring bitmap format.
+
 ### Column's other indexes###
 
 The format design supports the subsequent expansion of other index information, such as bitmap index, spatial index, etc. It only needs to write the required data to the existing column data, and add the corresponding metadata fields to FileFooterPB.
@@ -164,17 +197,18 @@ message ColumnMetaPB {
 	repeated MetadataPairPB column_meta_datas;
 }
 
-message FileFooterPB {
+message SegmentFooterPB {
 	optional uint32 version = 2 [default = 1]; // 用于版本兼容和升级使用
 	repeated ColumnPB schema = 5; // 列Schema
-    optional uint64 num_values = 4; // 文件中保存的行数
-    optional uint64 index_footprint = 7; // 索引大小
-    optional uint64 data_footprint = 8; // 数据大小
+  optional uint64 num_values = 4; // 文件中保存的行数
+  optional uint64 index_footprint = 7; // 索引大小
+  optional uint64 data_footprint = 8; // 数据大小
 	optional uint64 raw_data_footprint = 8; // 原始数据大小
 
-    optional CompressKind compress_kind = 9 [default = COMPRESS_LZO]; // 压缩方式
-    repeated ColumnMetaPB column_metas = 10; // 列元数据
+  optional CompressKind compress_kind = 9 [default = COMPRESS_LZO]; // 压缩方式
+  repeated ColumnMetaPB column_metas = 10; // 列元数据
 	optional PagePointerPB key_index_page; // short key索引page
+  optional PagePointerPB delete_index_page; // delete index索引page
 }
 
 ```
