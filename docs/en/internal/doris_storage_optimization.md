@@ -111,39 +111,6 @@ For each column, a sparse index of row numbers is established according to page 
 
 We generate a sparse index of short key every N rows (configurable) with the contents of short key - > line number (ordinal)
 
-### Delete Index page ###
-
-When importing and deleting according to the key, we will generate a bitmap index of the delete key for these keys. The content of the index is: the deleted line number (ordinal). It is a new feature in Doris 0.13.
-The specific format of delete index footer page(DeleteIndexFooterPB):
-```
-
-                 +--------------------+
-                 |        type        |
-                 |--------------------|
-                 |  uncompressed_size |
-                 |--------------------|
-                 |    content_bytes   |
-                 |--------------------|
-                 |      num_items     |
-                 |--------------------|
-                 |      checksum      |
-                 +--------------------+
-```
-
-The meaning of each field is as follows:
-- type:
-  - The type is DELETE_INDEX_PAGE, which means that the page of the index type is deleted
-- uncompressed_size: 
-  - Uncompressed page size
-- content_bytes: 
-  - Data size of index content
-- num_items: 
-  - Store the number of deleted entries recorded in the index
-- checksum: 
-  - Checksum of index page content
-
-encoding: The encoding format of index using roaring bitmap format.
-
 ### Column's other indexes###
 
 The format design supports the subsequent expansion of other index information, such as bitmap index, spatial index, etc. It only needs to write the required data to the existing column data, and add the corresponding metadata fields to FileFooterPB.
@@ -164,6 +131,7 @@ message ColumnPB {
     optional bool is_nullable = 11 [default=false]; // Whether column is allowed to assgin null
     optional bool is_bf_column = 15 [default=false]; // Whether column has bloom filter index
 	  optional bool is_bitmap_column = 16 [default=false]; // Whether column has bitmap index
+    optional bool is_delete_column = 17 [default=false]; // Whether column is delete column
 }
 
 // page偏移
@@ -208,7 +176,6 @@ message SegmentFooterPB {
   optional CompressKind compress_kind = 9 [default = COMPRESS_LZO]; // Compression type
   repeated ColumnMetaPB column_metas = 10; // Column metadata
 	optional PagePointerPB key_index_page = 11; // short key index page
-  optional PagePointerPB delete_index_page = 12; // delete index index page
 }
 
 ```
