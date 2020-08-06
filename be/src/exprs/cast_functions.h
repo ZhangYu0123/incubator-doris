@@ -137,6 +137,7 @@ public:
     static DateTimeVal cast_to_date_val(FunctionContext* context, const DoubleVal& val);
     static DateTimeVal cast_to_date_val(FunctionContext* context, const DateTimeVal& val);
     static DateTimeVal cast_to_date_val(FunctionContext* context, const StringVal& val);
+
 };
 
 }

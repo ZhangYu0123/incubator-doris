@@ -329,7 +329,7 @@ CAST_TO_DATETIMES();
     CAST_TO_DATE(BigIntVal);\
     CAST_TO_DATE(FloatVal);\
     CAST_TO_DATE(DoubleVal);
-
+    
 CAST_TO_DATES();
 
 DateTimeVal CastFunctions::cast_to_datetime_val(
