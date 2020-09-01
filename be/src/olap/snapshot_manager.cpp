@@ -87,7 +87,7 @@ OLAPStatus SnapshotManager::make_snapshot(
     res = _create_snapshot_files(ref_tablet, request, snapshot_path, request.preferred_snapshot_version);
     // if all nodes has been upgraded, it can be removed
     if (request.__isset.missing_version && res == OLAP_SUCCESS) {
-        (const_cast<TSnapshotRequest&>(request)).__set_allow_incremental_clone(true);
+        (const_cast<TSnapshotRequest&>(request)).__set_allow_stale_clone(true);
     }
 
     if (res != OLAP_SUCCESS) {
@@ -151,7 +151,7 @@ OLAPStatus SnapshotManager::convert_rowset_ids(const string& clone_dir, int64_t 
     TabletMetaPB new_tablet_meta_pb;
     new_tablet_meta_pb = cloned_tablet_meta_pb;
     new_tablet_meta_pb.clear_rs_metas();
-    new_tablet_meta_pb.clear_inc_rs_metas();
+    new_tablet_meta_pb.clear_stale_rs_metas();
     // should modify tablet id and schema hash because in restore process the tablet id is not
     // equal to tablet id in meta
     new_tablet_meta_pb.set_tablet_id(tablet_id);
@@ -170,17 +170,17 @@ OLAPStatus SnapshotManager::convert_rowset_ids(const string& clone_dir, int64_t 
         _rs_version_map[rowset_version] = rowset_meta;
     }
 
-    for (auto& inc_rowset : cloned_tablet_meta_pb.inc_rs_metas()) {
-        Version rowset_version = {inc_rowset.start_version(), inc_rowset.end_version()};
+    for (auto& stale_rowset : cloned_tablet_meta_pb.stale_rs_metas()) {
+        Version rowset_version = {stale_rowset.start_version(), stale_rowset.end_version()};
         auto exist_rs = _rs_version_map.find(rowset_version);
         if (exist_rs != _rs_version_map.end()) {
-            RowsetMetaPB* rowset_meta = new_tablet_meta_pb.add_inc_rs_metas();
+            RowsetMetaPB* rowset_meta = new_tablet_meta_pb.add_stale_rs_metas();
             *rowset_meta = *(exist_rs->second);
             continue;
         }
-        RowsetMetaPB* rowset_meta = new_tablet_meta_pb.add_inc_rs_metas();
+        RowsetMetaPB* rowset_meta = new_tablet_meta_pb.add_stale_rs_metas();
         RowsetId rowset_id = StorageEngine::instance()->next_rowset_id();
-        RETURN_NOT_OK(_rename_rowset_id(inc_rowset, clone_dir, tablet_schema, rowset_id, rowset_meta));
+        RETURN_NOT_OK(_rename_rowset_id(stale_rowset, clone_dir, tablet_schema, rowset_id, rowset_meta));
         rowset_meta->set_tablet_id(tablet_id);
         rowset_meta->set_tablet_schema_hash(schema_hash);
     }
@@ -357,7 +357,7 @@ OLAPStatus SnapshotManager::_create_snapshot_files(
             ReadLock rdlock(ref_tablet->get_header_lock_ptr());
             for (int64_t missed_version : request.missing_version) {
                 Version version = { missed_version, missed_version };
-                const RowsetSharedPtr rowset = ref_tablet->get_inc_rowset_by_version(version);
+                const RowsetSharedPtr rowset = ref_tablet->get_stale_rowset_by_version(version);
                 if (rowset != nullptr) {
                     consistent_rowsets.push_back(rowset);
                 } else {
@@ -426,12 +426,12 @@ OLAPStatus SnapshotManager::_create_snapshot_files(
         new_tablet_meta->delete_alter_task();
 
         if (request.__isset.missing_version) {
-            new_tablet_meta->revise_inc_rs_metas(std::move(rs_metas));
+            new_tablet_meta->revise_stale_rs_metas(std::move(rs_metas));
             new_tablet_meta->revise_rs_metas(vector<RowsetMetaSharedPtr>());
         } else {
             // If this is a full clone, then should clear inc rowset metas because
             // related files is not created
-            new_tablet_meta->revise_inc_rs_metas(vector<RowsetMetaSharedPtr>());
+            new_tablet_meta->revise_stale_rs_metas(vector<RowsetMetaSharedPtr>());
             new_tablet_meta->revise_rs_metas(std::move(rs_metas));
         }
 
@@ -439,7 +439,7 @@ OLAPStatus SnapshotManager::_create_snapshot_files(
             // convert beta rowset to alpha rowset
             if (request.__isset.missing_version) {
                 res = _convert_beta_rowsets_to_alpha(
-                    new_tablet_meta, new_tablet_meta->all_inc_rs_metas(),
+                    new_tablet_meta, new_tablet_meta->all_stale_rs_metas(),
                     schema_full_path, true);
             } else {
                 res = _convert_beta_rowsets_to_alpha(
@@ -463,7 +463,7 @@ OLAPStatus SnapshotManager::_create_snapshot_files(
             LOG(WARNING) << "convert rowset failed, res:" << res << ", tablet:"
                     << new_tablet_meta->tablet_id() << ", schema hash:" << new_tablet_meta->schema_hash()
                     << ", snapshot_version:" << snapshot_version
-                    << ", is incremental:" << request.__isset.missing_version;
+                    << ", is stale:" << request.__isset.missing_version;
             break;
         }
 
@@ -507,7 +507,7 @@ OLAPStatus SnapshotManager::_create_snapshot_files(
 }
 
 OLAPStatus SnapshotManager::_convert_beta_rowsets_to_alpha(const TabletMetaSharedPtr& new_tablet_meta,
-                const vector<RowsetMetaSharedPtr>& rowset_metas, const std::string& dst_path, bool is_incremental) {
+                const vector<RowsetMetaSharedPtr>& rowset_metas, const std::string& dst_path, bool is_stale) {
     OLAPStatus res = OLAP_SUCCESS;
     RowsetConverter rowset_converter(new_tablet_meta);
     std::vector<RowsetMetaSharedPtr> new_rowset_metas;
@@ -538,8 +538,8 @@ OLAPStatus SnapshotManager::_convert_beta_rowsets_to_alpha(const TabletMetaShare
         }
     }
     if (res == OLAP_SUCCESS && modified) {
-        if (is_incremental) {
-            new_tablet_meta->revise_inc_rs_metas(std::move(new_rowset_metas));
+        if (is_stale) {
+            new_tablet_meta->revise_stale_rs_metas(std::move(new_rowset_metas));
         } else {
             new_tablet_meta->revise_rs_metas(std::move(new_rowset_metas));
         }

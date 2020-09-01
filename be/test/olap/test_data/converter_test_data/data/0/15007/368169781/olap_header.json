@@ -479,7 +479,7 @@
             ]
         }
     ],
-    "incremental_delta": [
+    "stale_delta": [
         {
             "start_version": 2,
             "end_version": 2,

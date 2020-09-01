@@ -552,7 +552,7 @@ OLAPStatus DataDir::remove_old_meta_and_files() {
             }
         }
 
-        // remove incremental dir and pending dir
+        // remove stale dir and pending dir
         std::string pending_delta_path = data_path_prefix + PENDING_DELTA_PREFIX;
         if (FileUtils::check_exist(pending_delta_path)) {
             LOG(INFO) << "remove pending delta path:" << pending_delta_path;
@@ -569,6 +569,15 @@ OLAPStatus DataDir::remove_old_meta_and_files() {
             RETURN_WITH_WARN_IF_ERROR(
                     FileUtils::remove_all(incremental_delta_path), true,
                     "errors while remove incremental delta path. tablet_path=" + data_path_prefix);
+        }
+
+        std::string stale_delta_path = data_path_prefix + STALE_DELTA_PREFIX;
+        if (FileUtils::check_exist(stale_delta_path)) {
+            LOG(INFO) << "remove stale delta path:" << stale_delta_path;
+
+            RETURN_WITH_WARN_IF_ERROR(
+                    FileUtils::remove_all(stale_delta_path), true,
+                    "errors while remove stale delta path. tablet_path=" + data_path_prefix);
         }
 
         TabletMetaManager::remove(this, tablet_id, schema_hash, OLD_HEADER_PREFIX);

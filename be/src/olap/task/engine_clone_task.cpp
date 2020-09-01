@@ -85,7 +85,7 @@ OLAPStatus EngineCloneTask::_do_clone() {
         if (!migration_rlock.own_lock()) {
             return OLAP_ERR_RWLOCK_ERROR;
         }
-        LOG(INFO) << "clone tablet exist yet, begin to incremental clone. "
+        LOG(INFO) << "clone tablet exist yet, begin to stale clone. "
                     << "signature:" << _signature
                     << ", tablet_id:" << _clone_req.tablet_id
                     << ", schema_hash:" << _clone_req.schema_hash
@@ -93,13 +93,13 @@ OLAPStatus EngineCloneTask::_do_clone() {
 
         // get download path
         string local_data_path = tablet->tablet_path() + CLONE_PREFIX;
-        bool allow_incremental_clone = false;
+        bool allow_stale_clone = false;
         // check if current tablet has version == 2 and version hash == 0
         // version 2 may be an invalid rowset
         Version clone_version = {_clone_req.committed_version, _clone_req.committed_version};
         RowsetSharedPtr clone_rowset = tablet->get_rowset_by_version(clone_version);
         if (clone_rowset == nullptr) {
-            // try to incremental clone
+            // try to stale clone
             vector<Version> missed_versions;
             tablet->calc_missed_versions(_clone_req.committed_version, &missed_versions);
             LOG(INFO) << "finish to calculate missed versions when clone. "
@@ -116,27 +116,27 @@ OLAPStatus EngineCloneTask::_do_clone() {
             status = _clone_copy(*(tablet->data_dir()), local_data_path,
                                 &src_host, &src_file_path, _error_msgs,
                                 &missed_versions,
-                                &allow_incremental_clone);
+                                &allow_stale_clone);
         } else {
             LOG(INFO) << "current tablet has invalid rowset that's version == commit_version but version hash not equal"
                       << " clone req commit_version=" <<  _clone_req.committed_version
                       << " tablet info = " << tablet->full_name();
         }
-        if (status == DORIS_SUCCESS && allow_incremental_clone) {
-            OLAPStatus olap_status = _finish_clone(tablet.get(), local_data_path, _clone_req.committed_version, allow_incremental_clone);
+        if (status == DORIS_SUCCESS && allow_stale_clone) {
+            OLAPStatus olap_status = _finish_clone(tablet.get(), local_data_path, _clone_req.committed_version, allow_stale_clone);
             if (olap_status != OLAP_SUCCESS) {
-                LOG(WARNING) << "failed to finish incremental clone. [table=" << tablet->full_name()
+                LOG(WARNING) << "failed to finish stale clone. [table=" << tablet->full_name()
                              << " res=" << olap_status << "]";
-                _error_msgs->push_back("incremental clone error.");
+                _error_msgs->push_back("stale clone error.");
                 status = DORIS_ERROR;
             }
         } else {
-            bool allow_incremental_clone = false;
-            // begin to full clone if incremental failed
+            bool allow_stale_clone = false;
+            // begin to full clone if stale failed
             LOG(INFO) << "begin to full clone. [table=" << tablet->full_name();
             status = _clone_copy(*(tablet->data_dir()), local_data_path,
                                 &src_host, &src_file_path,  _error_msgs,
-                                NULL, &allow_incremental_clone);
+                                NULL, &allow_stale_clone);
             if (status == DORIS_SUCCESS) {
                 LOG(INFO) << "download successfully when full clone. [table=" << tablet->full_name()
                           << " src_host=" << src_host.host << " src_file_path=" << src_file_path
@@ -175,13 +175,13 @@ OLAPStatus EngineCloneTask::_do_clone() {
                             << "/" << _clone_req.schema_hash;
 
         if (status == DORIS_SUCCESS) {
-            bool allow_incremental_clone = false;
+            bool allow_stale_clone = false;
             status = _clone_copy(*store,
                                 tablet_dir_stream.str(),
                                 &src_host,
                                 &src_file_path,
                                 _error_msgs,
-                                nullptr, &allow_incremental_clone);
+                                nullptr, &allow_stale_clone);
         }
 
         if (status == DORIS_SUCCESS) {
@@ -261,7 +261,7 @@ void EngineCloneTask::_set_tablet_info(AgentStatus status, bool is_new_tablet) {
                       << ", version:" << tablet_info.version
                       << ", expected_version: " << _clone_req.committed_version;
             // if it is a new tablet and clone failed, then remove the tablet
-            // if it is incremental clone, then must not drop the tablet
+            // if it is stale clone, then must not drop the tablet
             if (is_new_tablet) {
                 // we need to check if this cloned table's version is what we expect.
                 // if not, maybe this is a stale remaining table which is waiting for drop.
@@ -297,7 +297,7 @@ AgentStatus EngineCloneTask::_clone_copy(
         string* snapshot_path,
         vector<string>* error_msgs,
         const vector<Version>* missed_versions,
-        bool* allow_incremental_clone) {
+        bool* allow_stale_clone) {
     AgentStatus status = DORIS_SUCCESS;
 
     std::string local_path = local_data_path + "/";
@@ -318,7 +318,7 @@ AgentStatus EngineCloneTask::_clone_copy(
                                  timeout_s,
                                  missed_versions,
                                  snapshot_path,
-                                 allow_incremental_clone,
+                                 allow_stale_clone,
                                  &snapshot_version);
         if (st.ok()) {
             LOG(INFO) << "success to make snapshot. ip=" << src.host << ", port=" << src.be_port
@@ -405,7 +405,7 @@ Status EngineCloneTask::_make_snapshot(
         int timeout_s,
         const std::vector<Version>* missed_versions,
         std::string* snapshot_path,
-        bool* allow_incremental_clone,
+        bool* allow_stale_clone,
         int32_t* snapshot_version) {
     TSnapshotRequest request;
     request.__set_tablet_id(tablet_id);
@@ -441,11 +441,11 @@ Status EngineCloneTask::_make_snapshot(
     } else {
         return Status::InternalError("success snapshot without snapshot path");
     }
-    if (result.__isset.allow_incremental_clone) {
+    if (result.__isset.allow_stale_clone) {
         // During upgrading, some BE nodes still be installed an old previous old.
         // which incremental clone is not ready in those nodes.
         // should add a symbol to indicate it.
-        *allow_incremental_clone = result.allow_incremental_clone;
+        *allow_stale_clone = result.allow_stale_clone;
     }
     *snapshot_version = result.snapshot_version;
     return Status::OK();
@@ -634,9 +634,9 @@ OLAPStatus EngineCloneTask::_convert_to_new_snapshot(const string& clone_dir, in
     return OLAP_SUCCESS;
 }
 
-// only incremental clone use this method
+// only stale clone use this method
 OLAPStatus EngineCloneTask::_finish_clone(Tablet* tablet, const string& clone_dir,
-                                         int64_t committed_version, bool is_incremental_clone) {
+                                         int64_t committed_version, bool is_stale_clone) {
     OLAPStatus res = OLAP_SUCCESS;
     vector<string> linked_success_files;
 
@@ -712,14 +712,14 @@ OLAPStatus EngineCloneTask::_finish_clone(Tablet* tablet, const string& clone_di
             break;
         }
 
-        if (is_incremental_clone) {
-            res = _clone_incremental_data(tablet, cloned_tablet_meta, committed_version);
+        if (is_stale_clone) {
+            res = _clone_stale_data(tablet, cloned_tablet_meta, committed_version);
         } else {
             res = _clone_full_data(tablet, const_cast<TabletMeta*>(&cloned_tablet_meta));
         }
 
         // if full clone success, need to update cumulative layer point
-        if (!is_incremental_clone && res == OLAP_SUCCESS) {
+        if (!is_stale_clone && res == OLAP_SUCCESS) {
             tablet->set_cumulative_layer_point(-1);
         }
 
@@ -744,9 +744,9 @@ OLAPStatus EngineCloneTask::_finish_clone(Tablet* tablet, const string& clone_di
     return res;
 }
 
-OLAPStatus EngineCloneTask::_clone_incremental_data(Tablet* tablet, const TabletMeta& cloned_tablet_meta,
+OLAPStatus EngineCloneTask::_clone_stale_data(Tablet* tablet, const TabletMeta& cloned_tablet_meta,
                                               int64_t committed_version) {
-    LOG(INFO) << "begin to incremental clone. tablet=" << tablet->full_name()
+    LOG(INFO) << "begin to stale clone. tablet=" << tablet->full_name()
               << ", committed_version=" << committed_version;
 
     vector<Version> missed_versions;
@@ -755,26 +755,26 @@ OLAPStatus EngineCloneTask::_clone_incremental_data(Tablet* tablet, const Tablet
     vector<Version> versions_to_delete;
     vector<RowsetMetaSharedPtr> rowsets_to_clone;
 
-    VLOG(3) << "get missed versions again when finish incremental clone. "
+    VLOG(3) << "get missed versions again when finish stale clone. "
             << "tablet=" << tablet->full_name()
             << ", committed_version=" << committed_version
             << ", missed_versions_size=" << missed_versions.size();
 
     // check missing versions exist in clone src
     for (Version version : missed_versions) {
-        RowsetMetaSharedPtr inc_rs_meta = cloned_tablet_meta.acquire_inc_rs_meta_by_version(version);
-        if (inc_rs_meta == nullptr) {
+        RowsetMetaSharedPtr stale_rs_meta = cloned_tablet_meta.acquire_stale_rs_meta_by_version(version);
+        if (stale_rs_meta == nullptr) {
             LOG(WARNING) << "missed version is not found in cloned tablet meta."
                          << ", missed_version=" << version.first << "-" << version.second;
             return OLAP_ERR_VERSION_NOT_EXIST;
         }
 
-        rowsets_to_clone.push_back(inc_rs_meta);
+        rowsets_to_clone.push_back(stale_rs_meta);
     }
 
     // clone_data to tablet
     OLAPStatus clone_res = tablet->revise_tablet_meta(rowsets_to_clone, versions_to_delete);
-    LOG(INFO) << "finish to incremental clone. [tablet=" << tablet->full_name() << " res=" << clone_res << "]";
+    LOG(INFO) << "finish to stale clone. [tablet=" << tablet->full_name() << " res=" << clone_res << "]";
     return clone_res;
 }
 

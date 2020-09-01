@@ -302,23 +302,6 @@ The default value is `false`.
 The merged expired rowset version path will be deleted after half an hour. In abnormal situations, deleting these versions will result in the problem that the consistent path of the query cannot be constructed. When the configuration is false, the program check is strict and the program will directly report an error and exit.
 When configured as true, the program will run normally and ignore this error. In general, ignoring this error will not affect the query, only when the merged version is dispathed by fe, -230 error will appear.
 
-### inc_rowset_expired_sec
-
-* Type: boolean
-* Description: Whether to continue to start be when load tablet from header failed.
-* Default: false
-
-When the BE starts, it will start a separate thread for each data directory to load the tablet header meta information. In the default configuration, if a tablet fails to load its header, the startup process is terminated. At the same time, you will see the following error message in the `be.INFO`:
-
-```
-load tablets from header failed, failed tablets size: xxx, path=xxx
-```
-
-Indicates how many tablets in this data directory failed to load. At the same time, the log will also have specific information about the tablet that failed to load. In this case, manual intervention is required to troubleshoot the cause of the error. After troubleshooting, there are usually two ways to recover:
-
-1. If the tablet information is not repairable, you can delete the wrong tablet through the `meta_tool` tool under the condition that other copies are normal.
-2. Set `ignore_load_tablet_failure` to true, BE will ignore these wrong tablets and start normally.
-
 ### `index_stream_cache_capacity`
 
 ### `load_data_reserve_hours`

@@ -74,6 +74,7 @@ static const std::string UNUSED_PREFIX = "/unused";
 static const std::string ERROR_LOG_PREFIX = "/error_log";
 static const std::string PENDING_DELTA_PREFIX = "/pending_delta";
 static const std::string INCREMENTAL_DELTA_PREFIX = "/incremental_delta";
+static const std::string STALE_DELTA_PREFIX = "/stale_delta";
 static const std::string CLONE_PREFIX = "/clone";
 
 static const int32_t OLAP_DATA_VERSION_APPLIED = DORIS_V1;

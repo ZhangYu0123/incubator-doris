@@ -202,6 +202,7 @@ struct TSnapshotRequest {
     // if all nodes has been upgraded, it can be removed.
     8: optional bool allow_incremental_clone
     9: optional i32 preferred_snapshot_version = Types.TPREFER_SNAPSHOT_REQ_VERSION
+    10: optional bool allow_stale_clone
 }
 
 struct TReleaseSnapshotRequest {
@@ -316,6 +317,7 @@ struct TAgentResult {
     // the snapshot that be has done according 
     // to the preferred snapshot version that client requests
     4: optional i32 snapshot_version  = 1
+    5: optional bool allow_stale_clone
 }
 
 struct TTopicItem {

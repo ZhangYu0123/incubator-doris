@@ -316,8 +316,6 @@ load tablets from header failed, failed tablets size: xxx, path=xxx
 合并的过期 rowset 版本路径会在半个小时后进行删除。在异常下，删除这些版本会出现构造不出查询一致路径的问题，当配置为false时，程序检查比较严格，程序会直接报错退出。
 当配置为true时，程序会正常运行，忽略这个错误。一般情况下，忽略这个错误不会对查询造成影响，仅会在fe下发了合并过的版本时出现-230错误。
 
-### `inc_rowset_expired_sec`
-
 ### `index_stream_cache_capacity`
 
 ### `load_data_reserve_hours`

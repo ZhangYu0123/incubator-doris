@@ -222,8 +222,8 @@ void AgentServer::make_snapshot(TAgentResult& t_agent_result,
 
     ret_st.to_thrift(&t_agent_result.status);
     t_agent_result.__set_snapshot_version(snapshot_request.preferred_snapshot_version);
-    if (snapshot_request.__isset.allow_incremental_clone) {
-        t_agent_result.__set_allow_incremental_clone(snapshot_request.allow_incremental_clone);
+    if (snapshot_request.__isset.allow_stale_clone) {
+        t_agent_result.__set_allow_stale_clone(snapshot_request.allow_stale_clone);
     }
 }
 

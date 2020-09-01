@@ -48,9 +48,9 @@ private:
     OLAPStatus _do_clone();
     
     virtual OLAPStatus _finish_clone(Tablet* tablet, const std::string& clone_dir,
-                                    int64_t committed_version, bool is_incremental_clone);
+                                    int64_t committed_version, bool is_stale_clone);
     
-    OLAPStatus _clone_incremental_data(Tablet* tablet, const TabletMeta& cloned_tablet_meta,
+    OLAPStatus _clone_stale_data(Tablet* tablet, const TabletMeta& cloned_tablet_meta,
                                      int64_t committed_version);
 
     OLAPStatus _clone_full_data(Tablet* tablet, TabletMeta* cloned_tablet_meta);
@@ -61,7 +61,7 @@ private:
         string* src_file_path,
         vector<string>* error_msgs,
         const vector<Version>* missing_versions,
-        bool* allow_incremental_clone);
+        bool* allow_stale_clone);
         
     OLAPStatus _convert_to_new_snapshot(const string& clone_dir, int64_t tablet_id);
 
@@ -80,7 +80,7 @@ private:
         int timeout_s,
         const std::vector<Version>* missed_versions,
         std::string* snapshot_path,
-        bool* allow_incremental_clone,
+        bool* allow_stale_clone,
         int32_t* snapshot_version);
 
     Status _release_snapshot(

@@ -230,9 +230,7 @@ namespace config {
     CONF_Int32(max_tablet_num_per_shard, "1024");
     // pending data policy
     CONF_mInt32(pending_data_expire_time_sec, "1800");
-    // inc_rowset expired interval
-    CONF_mInt32(inc_rowset_expired_sec, "1800");
-    // inc_rowset snapshot rs sweep time interval
+    // stale_rowset snapshot rs sweep time interval
     CONF_mInt32(tablet_rowset_stale_sweep_time_sec, "1800");
     // garbage sweep policy
     CONF_Int32(max_garbage_sweep_interval, "3600");
