@@ -47,7 +47,7 @@ struct FileStat {
  * Each call of upload() is reponsible for severval tablet snapshots.
  *
  * It will try to get the existing files in remote storage,
- * and only upload the incremental part of files.
+ * and only upload the stale part of files.
  *
  * Download:
  * download() will download the romote tablet snapshot files 

@@ -86,6 +86,7 @@ TEST_F(TabletMetaManagerTest, TestSaveAndGetAndRemove) {
     std::string json_meta_read;
     s = TabletMetaManager::get_json_meta(_data_dir, tablet_id, schema_hash, &json_meta_read);
     ASSERT_EQ(OLAP_SUCCESS, s);
+
     ASSERT_EQ(_json_header, json_meta_read);
     s = TabletMetaManager::remove(_data_dir, tablet_id, schema_hash);
     ASSERT_EQ(OLAP_SUCCESS, s);

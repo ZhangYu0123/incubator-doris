@@ -664,7 +664,7 @@ OLAPStatus StorageEngine::_start_trash_sweep(double* usage) {
         }
     }
 
-    // clear expire incremental rowset, move deleted tablet to trash
+    // clear expire stale rowset, move deleted tablet to trash
     _tablet_manager->start_trash_sweep();
 
     // clean rubbish transactions

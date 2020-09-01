@@ -134,7 +134,13 @@
             }
         }
     ],
-    "inc_rs_metas": [
+    "in_restore_mode": false,
+    "tablet_uid": {
+        "hi": 10,
+        "lo": 10
+    },
+    "tablet_type": "TABLET_TYPE_DISK",
+    "stale_rs_metas": [
         {
             "rowset_id": 540081,
             "tablet_id": 15673,
@@ -186,11 +192,5 @@
                 ]
             }
         }
-    ],
-    "in_restore_mode": false,
-    "tablet_uid": {
-        "hi": 10,
-        "lo": 10
-    },
-    "tablet_type": "TABLET_TYPE_DISK"
+    ]
 }
